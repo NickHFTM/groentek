@@ -26,11 +26,16 @@ import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.ui.Alignment
+import android.content.Context
+import androidx.compose.ui.platform.LocalContext
+import org.json.JSONArray
+import org.json.JSONObject
 
 data class Plant(
     val id: Int,
     val name: String,
     val soilMoisture: String,
+    val lightHours: String,
     val favorite: Boolean = false
 )
 
@@ -44,21 +49,66 @@ class MainActivity : ComponentActivity() {
         }
     }
 }
+fun savePlants(context: Context, plants: List<Plant>) {
+    val jsonArray = JSONArray()
+
+    plants.forEach { plant ->
+        val json = JSONObject()
+        json.put("id", plant.id)
+        json.put("name", plant.name)
+        json.put("soilMoisture", plant.soilMoisture)
+        json.put("lightHours", plant.lightHours)
+        json.put("favorite", plant.favorite)
+        jsonArray.put(json)
+    }
+
+    context.getSharedPreferences("groentek", Context.MODE_PRIVATE)
+        .edit()
+        .putString("plants", jsonArray.toString())
+        .apply()
+}
+fun loadPlants(context: Context): List<Plant> {
+    val jsonString = context
+        .getSharedPreferences("groentek", Context.MODE_PRIVATE)
+        .getString("plants", null)
+
+    if (jsonString == null) {
+        return listOf()
+    }
+
+    val jsonArray = JSONArray(jsonString)
+    val plants = mutableListOf<Plant>()
+
+    for (i in 0 until jsonArray.length()) {
+        val json = jsonArray.getJSONObject(i)
+
+        plants.add(
+            Plant(
+                id = json.getInt("id"),
+                name = json.getString("name"),
+                soilMoisture = json.getString("soilMoisture"),
+                lightHours = json.getString("lightHours"),
+                favorite = json.getBoolean("favorite")
+            )
+        )
+    }
+
+    return plants
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PlantListScreen() {
 
+    val context = LocalContext.current
     var plants by remember {
-        mutableStateOf(
-            listOf(
-                Plant(1, "Tomate", "35"),
-                Plant(2, "Basilikum", "40")
-            )
-        )
+        mutableStateOf(loadPlants(context))
     }
 
     var showDialog by remember { mutableStateOf(false) }
+    LaunchedEffect(plants) {
+        savePlants(context, plants)
+    }
 
     Box(
         modifier = Modifier.fillMaxSize()
@@ -170,6 +220,10 @@ fun PlantListScreen() {
                                         text = "Bodenfeuchtigkeit: ${plant.soilMoisture} %",
                                         color = Color.DarkGray
                                     )
+                                    Text(
+                                        text = "Licht: ${plant.lightHours} h",
+                                        color = Color.DarkGray
+                                    )
                                 }
 
                                 IconButton(
@@ -204,6 +258,7 @@ fun PlantListScreen() {
 
             var plantName by remember { mutableStateOf("") }
             var soilMoisture by remember { mutableStateOf("") }
+            var lightHours by remember { mutableStateOf("") }
 
             AlertDialog(
                 onDismissRequest = {
@@ -249,21 +304,41 @@ fun PlantListScreen() {
                                 keyboardType = KeyboardType.Number
                             )
                         )
+                        OutlinedTextField(
+                            value = lightHours,
+                            onValueChange = {
+
+                                if (it.all { char -> char.isDigit() }) {
+
+                                    val value = it.toIntOrNull()
+
+                                    if (value == null || value in 0..24) {
+                                        lightHours = it
+                                    }
+                                }
+                            },
+                            label = {
+                                Text("Lichtstunden pro Tag")
+                            },
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = KeyboardType.Number
+                            )
+                        )
                     }
                 },
                 confirmButton = {
 
                     Button(
                         enabled =
-                            plantName.isNotBlank() &&
-                                    soilMoisture.isNotBlank(),
+                            plantName.isNotBlank() && soilMoisture.isNotBlank() && lightHours.isNotBlank(),
 
                         onClick = {
 
                             val newPlant = Plant(
                                 id = plants.size + 1,
                                 name = plantName.trim(),
-                                soilMoisture = soilMoisture.trim()
+                                soilMoisture = soilMoisture.trim(),
+                                lightHours = lightHours.trim()
                             )
 
                             plants = plants + newPlant
