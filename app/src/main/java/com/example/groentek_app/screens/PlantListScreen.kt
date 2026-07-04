@@ -30,6 +30,9 @@ import kotlinx.coroutines.launch
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.rememberSwipeToDismissBoxState
+import androidx.compose.material.icons.filled.Edit
+import com.example.groentek_app.dialogs.EditPlantDialog
+import com.example.groentek_app.model.Plant
 
 /**
  * Main screen of the app.
@@ -79,6 +82,9 @@ fun PlantListScreen() {
     // Text shown after testing the ESP32 connection.
     var connectionStatus by remember {
         mutableStateOf("")
+    }
+    var plantToEdit by remember {
+        mutableStateOf<Plant?>(null)
     }
 
     // Automatically save plants whenever the list changes.
@@ -257,27 +263,40 @@ fun PlantListScreen() {
 
                                 // Favorite selector.
                                 // Only one plant can be selected at a time.
-                                IconButton(
-                                    onClick = {
-                                        plants = plants.map {
-                                            it.copy(
-                                                favorite = it.id == plant.id
-                                            )
+                                Row {
+
+                                    IconButton(
+                                        onClick = {
+                                            plantToEdit = plant
                                         }
-                                    }
-                                ) {
-                                    if (plant.favorite) {
+                                    ) {
                                         Icon(
-                                            imageVector = Icons.Filled.Favorite,
-                                            contentDescription = "Ausgewählt",
-                                            tint = Color.Red
-                                        )
-                                    } else {
-                                        Icon(
-                                            imageVector = Icons.Outlined.FavoriteBorder,
-                                            contentDescription = "Nicht ausgewählt",
+                                            imageVector = Icons.Default.Edit,
+                                            contentDescription = "Bearbeiten",
                                             tint = Color.Gray
                                         )
+                                    }
+
+                                    IconButton(
+                                        onClick = {
+                                            plants = plants.map {
+                                                it.copy(favorite = it.id == plant.id)
+                                            }
+                                        }
+                                    ) {
+                                        if (plant.favorite) {
+                                            Icon(
+                                                imageVector = Icons.Filled.Favorite,
+                                                contentDescription = "Ausgewählt",
+                                                tint = Color.Red
+                                            )
+                                        } else {
+                                            Icon(
+                                                imageVector = Icons.Outlined.FavoriteBorder,
+                                                contentDescription = "Nicht ausgewählt",
+                                                tint = Color.Gray
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -318,6 +337,20 @@ fun PlantListScreen() {
                         connectionStatus = "Teste Verbindung..."
                         connectionStatus = Esp32Api.testConnection(ipToTest)
                     }
+                }
+            )
+        }
+        if (plantToEdit != null) {
+            EditPlantDialog(
+                plant = plantToEdit!!,
+                onDismiss = {
+                    plantToEdit = null
+                },
+                onPlantUpdated = { updatedPlant ->
+                    plants = plants.map {
+                        if (it.id == updatedPlant.id) updatedPlant else it
+                    }
+                    plantToEdit = null
                 }
             )
         }
